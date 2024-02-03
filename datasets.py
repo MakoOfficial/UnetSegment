@@ -4,6 +4,7 @@ from PIL import Image, ImageOps
 import numpy as np
 import torch
 from torchvision import transforms
+import cv2
 
 class SegmentDataset(data.Dataset):
     def __init__(self, root_dir):
@@ -28,13 +29,17 @@ class SegmentDataset(data.Dataset):
     def read_a_pic(self, index):
         image_index = self.images[index]
         img_path = os.path.join(self.root_dir, image_index)
-        img = Image.open(img_path)
+        # img = Image.open(img_path)
+        img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+        img = Image.fromarray(np.uint8(img))
         return self.transform(img)
     
     def read_a_mask(self, index):
         mask_index = self.masks[index]
         img_path = os.path.join(self.mask_dir, mask_index)
-        img = Image.open(img_path)
+        # img = Image.open(img_path)
+        img = cv2.imread(img_path, cv2.IMREAD_GRAYSCALE)
+        img = Image.fromarray(np.uint8(img))
         return self.transform(img)
 
     def __getitem__(self, index):
