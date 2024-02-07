@@ -13,7 +13,22 @@ from model import UNet
 import torch
 import numpy as np
 import random
+import os
 
+rewrite_print = print
+def print(*arg):
+    # 首先，调用原始的print函数将内容打印到控制台。
+    rewrite_print(*arg)
+
+    # 如果日志文件所在的目录不存在，则创建一个目录。
+    output_dir = "./output"
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+    # 打开（或创建）日志文件并将内容写入其中。
+    log_name = 'log.txt'
+    filename = os.path.join(output_dir, log_name)
+    rewrite_print(*arg, file=open(filename, "a"))
 
 seed = 1#seed必须是int，可以自行设置
 torch.manual_seed(seed)
@@ -32,7 +47,7 @@ torch.backends.cudnn.benchmark = False
 
 
 def pixel_accuracy(output, label, threshold=0.9):
-    output = torch.where(output > threshold, torch.tensor(1), torch.tensor(0)).type(torch.FloatTensor)
+    output = torch.where(output > threshold, torch.tensor(1), torch.tensor(0)).type(torch.FloatTensor).cuda()
     correct_pixels = torch.sum(output == label).item()
     total_pixels = label.numel()
     accuracy = correct_pixels / total_pixels
@@ -44,7 +59,7 @@ optimizer = torch.optim.Adam(net.parameters(), lr=1e-4)
 scheduler = StepLR(optimizer, step_size=50, gamma=0.1)
 
 loss_func = nn.BCELoss()
-EPOCH = 100
+EPOCH = 50
 
 dataset = SegmentDataset("../../autodl-tmp/archiveUnet/train")
 print(f"train dataset is {dataset}")
@@ -66,6 +81,8 @@ valloader = torch.utils.data.DataLoader(
     drop_last=False
 )
 
+best_acc = 0.
+
 for epoch in range(EPOCH):
     print('开始第{}轮'.format(epoch))
     net.train()
@@ -86,18 +103,21 @@ for epoch in range(EPOCH):
     net.eval()
     correct = 0.
     total_pix = 0.
-    for i, (img, label) in enumerate(valloader):
-        img = img.cuda()
-        label = label.type(torch.LongTensor).cuda()
-        img_out = net(img)
-        correct_pixels, total_pixels = pixel_accuracy(img_out, label)
-        correct += correct_pixels
-        total_pix += total_pixels
+    with torch.no_grad():
+        for i, (img, label) in enumerate(valloader):
+            img = img.cuda()
+            label = label.type(torch.LongTensor).cuda()
+            img_out = net(img)
+            correct_pixels, total_pixels = pixel_accuracy(img_out, label)
+            correct += correct_pixels
+            total_pix += total_pixels
 
-    print(f'第{epoch + 1}轮结束, train loss: {round(total_loss / total_length, 2)}, '
-          f'accuracy: {(round(correct / total_pix, 4) * 100)}%')
+        print(f'第{epoch + 1}轮结束, train loss: {round(total_loss / total_length, 2)}, '
+              f'accuracy: {(round(correct / total_pix, 4) * 100)}%')
+    if (correct / total_pix) > best_acc:
+        torch.save(net.state_dict(), f"./Unet_acc{(round(correct / total_pix, 4) * 100)}.pth")
 
-torch.save(net.state_dict(), "./Unet.pth")
+
 
 
 
