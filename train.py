@@ -115,6 +115,7 @@ for epoch in range(EPOCH):
         print(f'第{epoch + 1}轮结束, train loss: {round(total_loss / total_length, 2)}, '
               f'accuracy: {(round(correct / total_pix, 4) * 100)}%')
     if (correct / total_pix) > best_acc:
+        best_acc = (correct / total_pix)
         torch.save(net.state_dict(), f"./Unet_acc{(round(correct / total_pix, 4) * 100)}.pth")
 
 
